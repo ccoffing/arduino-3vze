@@ -82,7 +82,7 @@ public:
         drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color, uint16_t bg, uint8_t size),
         setCursor(int16_t x, int16_t y), setTextColor(uint16_t c),
         setTextColor(uint16_t c, uint16_t bg), setTextSize(uint8_t s), setTextWrap(boolean w),
-        cp437(boolean x = true), setFont(const GFXfont*f = NULL),
+        setFont(const GFXfont*f = NULL),
         getTextBounds(
             char*string, int16_t x, int16_t y, int16_t*x1, int16_t*y1, uint16_t*w, uint16_t*h),
         getTextBounds(const __FlashStringHelper*s, int16_t x, int16_t y, int16_t*x1, int16_t*y1,
@@ -112,8 +112,7 @@ protected:
         cursor_x, cursor_y;
     uint16_t textcolor, textbgcolor;
     uint8_t textsize, rotation;
-    boolean wrap, // If set, 'wrap' text at right edge of display
-        _cp437; // If set, use correct CP437 charset (default is off)
+    boolean wrap; // If set, 'wrap' text at right edge of display
     GFXfont* gfxFont;
 };
 

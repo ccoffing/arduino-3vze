@@ -86,7 +86,6 @@ Adafruit_GFX::Adafruit_GFX(int16_t w, int16_t h)
     textsize = 1;
     textcolor = textbgcolor = 0xFFFF;
     wrap = true;
-    _cp437 = false;
     gfxFont = NULL;
 }
 
@@ -770,9 +769,6 @@ void Adafruit_GFX::drawChar(
             ((y + 8 * size - 1) < 0)) // Clip top
             return;
 
-        if (!_cp437 && (c >= 176))
-            c++; // Handle 'classic' charset behavior
-
         startWrite();
         for (int8_t i = 0; i < 5; i++) { // Char bitmap = 5 columns
             uint8_t line = pgm_read_byte(&font[c * 5 + i]);
@@ -966,18 +962,6 @@ void Adafruit_GFX::setRotation(uint8_t x)
         _height = WIDTH;
         break;
     }
-}
-
-// Enable (or disable) Code Page 437-compatible charset.
-// There was an error in glcdfont.c for the longest time -- one character
-// (#176, the 'light shade' block) was missing -- this threw off the index
-// of every character that followed it.  But a TON of code has been written
-// with the erroneous character indices.  By default, the library uses the
-// original 'wrong' behavior and old sketches will still work.  Pass 'true'
-// to this function to use correct CP437 character values in your code.
-void Adafruit_GFX::cp437(boolean x)
-{
-    _cp437 = x;
 }
 
 void Adafruit_GFX::setFont(const GFXfont* f)
