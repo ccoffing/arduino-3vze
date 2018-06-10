@@ -74,7 +74,7 @@ uint16_t ECU::readParameter(uint16_t numBits, uint32_t paramStart, bool resync)
     uint32_t bitTime = paramStart + (bitUsec >> 1);
     for (uint16_t i = 0; i < numBits; ++i, bitTime += bitUsec)
     {
-        while (diagStopwatch.elapsed() < bitTime);
+        while (diagStopwatch.elapsed() < bitTime)
             ;
         param <<= 1;
         if (samplePort())
@@ -83,12 +83,29 @@ uint16_t ECU::readParameter(uint16_t numBits, uint32_t paramStart, bool resync)
 
     if (resync)
     {
-        // Wait for the end of the stop bits and re-sync the clocks to correct any timing errors.
-        uint32_t lastStopBitTime = paramStart + (numBits + 1) * bitUsec;
-        while (diagStopwatch.elapsed() < lastStopBitTime)
-            ;
-
-        // TODO
+        // Followed by 2 high stop bits.
+        for (uint16_t i = 0; i < 2; ++i, bitTime += bitUsec)
+        {
+            while (diagStopwatch.elapsed() < bitTime)
+                ;
+        }
+        // Now in the middle of the last stop bit (high), and bitTime references
+        // the middle of the start bit (low).  Wait for the signal to go low
+        // and adjust the clock, at most +/- half a period.
+        uint16_t highUsec = 0;
+        uint32_t edge;
+        do
+        {
+            uint16_t prevHighUsec = highUsec;
+            bool high = samplePort(&highUsec);
+            edge = diagStopwatch.elapsed();
+            if (!high)
+            {
+                edge += -(1000 - prevHighUsec) - (1000 - highUsec);
+                break;
+            }
+        } while (edge < bitTime);
+        diagStopwatch.rebase(edge - bitTime);
     }
 
     return param;
@@ -99,13 +116,12 @@ bool ECU::readDiagPort(ECUSample& sample)
     if (!findPreamble())
         return false;
 
-    const uint16_t wordLen = 11; // 1 start bit + 8 data bits + 2 stop bits
-    const uint16_t wordUsec = wordLen * bitUsec;
+    const uint16_t wordUsec     = 11 * bitUsec;             // 1 start bit + 8 data bits + 2 stop bits
 
-    // TODO clean this up based on the PDF.  "16" and "5" are globbing together OBD-I ID and start bit.
-
-    // First data word starts 16 bits after preamble goes low.
-    const uint32_t InjTime      = (5 + wordLen) * bitUsec;
+    // Start times are as per diagStopwatch.elapsed()
+    const uint32_t ODBID        = 0;                        // ODB-1 ID (0100) ocurring now
+    const uint32_t Unknown0Time = ODBID   + (5 * bitUsec);  // 4 bits for ODB-1 ID + 1 start bit
+    const uint32_t InjTime      = Unknown0Time + wordUsec;
     const uint32_t IgnTime      = InjTime      + wordUsec;
     const uint32_t IACTime      = IgnTime      + wordUsec;
     const uint32_t RPMTime      = IACTime      + wordUsec;
@@ -119,7 +135,7 @@ bool ECU::readDiagPort(ECUSample& sample)
     const uint32_t Flag2Time    = Flag1Time    + wordUsec;
 
     // Read the serial parameters in succession
-    uint16_t Unknown1, Unknown2, Flag1, Flag2;
+    readParameter(8, Unknown0Time, true);
     sample.injectorCentisec = readParameter(8, InjTime, true);
     sample.ignitionAngle = readParameter(8, IgnTime, true) - 90;
     sample.iac = readParameter(8, IACTime, true) * 100 / 125;
@@ -128,10 +144,10 @@ bool ECU::readDiagPort(ECUSample& sample)
     sample.ect = readParameter(8, ECTTime, true);
     sample.tps = readParameter(8, TPSTime, true) / 2;
     sample.speed = readParameter(8, SpeedTime, true);
-    Unknown1 = readParameter(8, Unknown1Time, true);
-    Unknown2 = readParameter(8, Unknown2Time, true);
-    Flag1 = readParameter(8, Flag1Time, true);
-    Flag2 = readParameter(8, Flag2Time, false);
+    readParameter(8, Unknown1Time, true);
+    readParameter(8, Unknown2Time, true);
+    readParameter(8, Flag1Time, true);
+    readParameter(8, Flag2Time, false);
 
     return true;
 }
